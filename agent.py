@@ -19,7 +19,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import anthropic
-import scrapetube
+from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 
@@ -29,27 +29,53 @@ from channels import CHANNELS, VIDEOS_PER_CHANNEL, MAX_TRANSCRIPT_CHARS
 # ─────────────────────────────────────────────
 # 1. FETCH LATEST VIDEOS FROM A CHANNEL
 # ─────────────────────────────────────────────
+def _get_youtube_client():
+    return build("youtube", "v3", developerKey=os.environ["YOUTUBE_API_KEY"])
+
+
 def get_recent_videos(channel_url: str, channel_name: str, limit: int = 2) -> list[dict]:
-    """Return the most recent `limit` videos from a YouTube channel URL."""
+    """Return the most recent `limit` videos using the YouTube Data API v3."""
     videos = []
     try:
-        raw = scrapetube.get_channel(channel_url=channel_url, limit=limit, sleep=1)
-        for v in raw:
-            video_id = v.get("videoId", "")
-            title = ""
-            # scrapetube nests the title inside runs
-            try:
-                title = v["title"]["runs"][0]["text"]
-            except (KeyError, IndexError):
-                title = video_id
+        youtube = _get_youtube_client()
 
-            if video_id:
-                videos.append({
-                    "id": video_id,
-                    "title": title,
-                    "url": f"https://www.youtube.com/watch?v={video_id}",
-                    "channel": channel_name,
-                })
+        # Extract @handle from URL e.g. https://www.youtube.com/@AlexHormozi
+        handle = channel_url.split("/@")[-1] if "/@" in channel_url else None
+        if not handle:
+            print(f"  ⚠️  {channel_name}: could not parse handle from URL")
+            return videos
+
+        # Resolve handle → uploads playlist ID (costs 1 API unit)
+        ch_resp = youtube.channels().list(
+            part="contentDetails",
+            forHandle=handle
+        ).execute()
+
+        items = ch_resp.get("items", [])
+        if not items:
+            print(f"  ⚠️  {channel_name}: channel not found for handle @{handle}")
+            return videos
+
+        uploads_playlist = items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+        # Fetch recent videos from uploads playlist (costs 1 API unit)
+        pl_resp = youtube.playlistItems().list(
+            part="snippet",
+            playlistId=uploads_playlist,
+            maxResults=limit
+        ).execute()
+
+        for item in pl_resp.get("items", []):
+            snippet = item["snippet"]
+            video_id = snippet["resourceId"]["videoId"]
+            title = snippet.get("title", video_id)
+            videos.append({
+                "id": video_id,
+                "title": title,
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+                "channel": channel_name,
+            })
+
         print(f"  ✅ {channel_name}: {len(videos)} video(s) found")
     except Exception as e:
         print(f"  ⚠️  {channel_name}: could not fetch videos — {e}")
