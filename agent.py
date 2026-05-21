@@ -200,6 +200,36 @@ Based on your analysis, produce EXACTLY the following output in this format:
    [HOOK]: ...
    [WHY IT WORKS]: ...
 
+=== REEL IDEAS ===
+
+These must be realistic, immediately executable Instagram Reels (30–60 seconds).
+Each idea should be filmable with just a phone — no studio, no crew needed.
+
+1. [HOOK]: <First 3-second text or spoken line that stops the scroll>
+   [FORMAT]: <Talking head / Text overlay on B-roll / Point-to-text / Screen recording / Voiceover montage>
+   [SCRIPT]: <Full 30–60 second spoken script or text sequence, step by step>
+   [CTA]: <What to say or show at the end to drive saves/follows/comments>
+
+2. [HOOK]: ...
+   [FORMAT]: ...
+   [SCRIPT]: ...
+   [CTA]: ...
+
+3. [HOOK]: ...
+   [FORMAT]: ...
+   [SCRIPT]: ...
+   [CTA]: ...
+
+4. [HOOK]: ...
+   [FORMAT]: ...
+   [SCRIPT]: ...
+   [CTA]: ...
+
+5. [HOOK]: ...
+   [FORMAT]: ...
+   [SCRIPT]: ...
+   [CTA]: ...
+
 === BUSINESS IDEAS ===
 
 1. [CONCEPT]: <Name of business idea>
@@ -235,7 +265,7 @@ def analyze_with_claude(prompt: str) -> str:
     print("🤖 Sending to Claude Haiku for analysis...")
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2000,
+        max_tokens=3500,
         messages=[{"role": "user", "content": prompt}],
     )
     return response.content[0].text
@@ -258,24 +288,23 @@ def build_email_html(analysis: str, videos: list[dict]) -> str:
             return text[start:end].strip() if end != -1 else text[start:].strip()
         return text[start:].strip()
 
-    video_ideas_raw = extract_section(analysis, "=== VIDEO IDEAS ===", "=== BUSINESS IDEAS ===")
+    video_ideas_raw = extract_section(analysis, "=== VIDEO IDEAS ===", "=== REEL IDEAS ===")
+    reel_ideas_raw = extract_section(analysis, "=== REEL IDEAS ===", "=== BUSINESS IDEAS ===")
     business_ideas_raw = extract_section(analysis, "=== BUSINESS IDEAS ===", "=== TRENDING THEMES ===")
     themes_raw = extract_section(analysis, "=== TRENDING THEMES ===")
 
-    def format_section_html(raw_text):
-        """Convert numbered list with [KEY]: value format to styled HTML."""
+    def format_section_html(raw_text, accent="#1a73e8"):
         html = ""
         items = re.split(r"\n(?=\d+\.)", raw_text.strip())
         for item in items:
             if not item.strip():
                 continue
             lines = item.strip().split("\n")
-            html += '<div style="background:#f9f9f9;border-left:4px solid #1a73e8;padding:14px 18px;margin-bottom:16px;border-radius:4px;">'
+            html += f'<div style="background:#f9f9f9;border-left:4px solid {accent};padding:14px 18px;margin-bottom:16px;border-radius:4px;">'
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
-                # Bold the key labels like [TITLE]:
                 line = re.sub(r"\[([A-Z\s]+)\]:", r"<strong>[\1]:</strong>", line)
                 html += f"<p style='margin:4px 0;font-size:14px;color:#333;'>{line}</p>"
             html += "</div>"
@@ -315,6 +344,14 @@ def build_email_html(analysis: str, videos: list[dict]) -> str:
       🎬 5 Video Ideas for Your Channel
     </h2>
     {format_section_html(video_ideas_raw)}
+  </div>
+
+  <!-- REEL IDEAS -->
+  <div style="margin-bottom:28px;">
+    <h2 style="color:#1a1a2e;border-bottom:2px solid #e1306c;padding-bottom:8px;font-size:18px;">
+      📱 5 Instagram Reel Ideas
+    </h2>
+    {format_section_html(reel_ideas_raw, accent="#e1306c")}
   </div>
 
   <!-- BUSINESS IDEAS -->
