@@ -27,8 +27,8 @@ CHANNELS = [
     },
     {
         "name": "Patrick Bet-David - PBD",
-        "handle": "@patrickbetdavid",
-        "url": "https://www.youtube.com/@patrickbetdavid",
+        "handle": "@PBDPodcast",
+        "url": "https://www.youtube.com/@PBDPodcast",
     },
     {
         "name": "TBPN",
@@ -52,13 +52,13 @@ CHANNELS = [
     },
     {
         "name": "David Senra - Founders",
-        "handle": "@davidsenra1",
-        "url": "https://www.youtube.com/@davidsenra1",
+        "handle": "@FoundersPodcast",
+        "url": "https://www.youtube.com/@FoundersPodcast",
     },
     {
         "name": "Steven Bartlett - DOAC",
-        "handle": "@StevenBartlett",
-        "url": "https://www.youtube.com/@StevenBartlett",
+        "handle": "@TheDiaryOfACEO",
+        "url": "https://www.youtube.com/@TheDiaryOfACEO",
     },
     {
         "name": "Chris Williamson - Modern Wisdom",
@@ -67,8 +67,8 @@ CHANNELS = [
     },
     {
         "name": "Chew the Fat / Founders Table",
-        "handle": "@ChewTheFatOfficial",
-        "url": "https://www.youtube.com/@ChewTheFatOfficial",
+        "handle": "@ChewTheFatPod",
+        "url": "https://www.youtube.com/@ChewTheFatPod",
     },
 ]
 

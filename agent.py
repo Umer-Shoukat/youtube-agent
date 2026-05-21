@@ -88,9 +88,9 @@ def get_recent_videos(channel_url: str, channel_name: str, limit: int = 2) -> li
 def get_transcript(video_id: str, max_chars: int = MAX_TRANSCRIPT_CHARS) -> str:
     """Fetch and truncate a YouTube transcript. Returns empty string on failure."""
     try:
-        segments = YouTubeTranscriptApi.get_transcript(video_id, languages=["en", "en-US", "en-GB"])
-        full_text = " ".join(s["text"] for s in segments)
-        # Clean up whitespace artifacts
+        api = YouTubeTranscriptApi()
+        fetched = api.fetch(video_id, languages=["en", "en-US", "en-GB"])
+        full_text = " ".join(s.text for s in fetched)
         full_text = re.sub(r"\s+", " ", full_text).strip()
         return full_text[:max_chars]
     except (TranscriptsDisabled, NoTranscriptFound):
