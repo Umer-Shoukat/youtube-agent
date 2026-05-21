@@ -7,6 +7,8 @@ analyzes with Claude Haiku, and emails a daily digest with:
   - 2-3 business ideas inspired by today's content
 """
 
+
+
 import os
 import re
 import json
