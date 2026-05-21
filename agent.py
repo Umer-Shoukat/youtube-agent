@@ -333,20 +333,20 @@ def build_email_html(analysis: str, videos: list[dict]) -> str:
 def send_email(html_body: str, subject: str):
     sender = os.environ["GMAIL_USER"]
     password = os.environ["GMAIL_APP_PASSWORD"]
-    recipient = os.environ["EMAIL_RECIPIENT"]
+    recipients = [r.strip() for r in os.environ["EMAIL_RECIPIENT"].split(",") if r.strip()]
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"Creator Digest Agent <{sender}>"
-    msg["To"] = recipient
+    msg["To"] = ", ".join(recipients)
 
     msg.attach(MIMEText(html_body, "html"))
 
-    print(f"📧 Sending email to {recipient}...")
+    print(f"📧 Sending email to {', '.join(recipients)}...")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
-        server.sendmail(sender, recipient, msg.as_string())
-    print("✅ Email sent successfully!")
+        server.sendmail(sender, recipients, msg.as_string())
+    print(f"✅ Email sent successfully to {len(recipients)} recipient(s)!")
 
 
 # ─────────────────────────────────────────────
