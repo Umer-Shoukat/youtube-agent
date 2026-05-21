@@ -21,7 +21,6 @@ from email.mime.text import MIMEText
 import anthropic
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 
 from channels import CHANNELS, VIDEOS_PER_CHANNEL, MAX_TRANSCRIPT_CHARS
 
@@ -83,42 +82,67 @@ def get_recent_videos(channel_url: str, channel_name: str, limit: int = 2) -> li
 
 
 # ─────────────────────────────────────────────
-# 2. GET TRANSCRIPT FOR A VIDEO
+# 2. GET TRANSCRIPT FOR A VIDEO (best-effort)
 # ─────────────────────────────────────────────
 def get_transcript(video_id: str, max_chars: int = MAX_TRANSCRIPT_CHARS) -> str:
-    """Fetch and truncate a YouTube transcript. Returns empty string on failure."""
+    """Try to fetch a YouTube transcript. Returns empty string if blocked or unavailable."""
     try:
         api = YouTubeTranscriptApi()
         fetched = api.fetch(video_id, languages=["en", "en-US", "en-GB"])
         full_text = " ".join(s.text for s in fetched)
         full_text = re.sub(r"\s+", " ", full_text).strip()
         return full_text[:max_chars]
-    except (TranscriptsDisabled, NoTranscriptFound):
+    except Exception:
         return ""
-    except Exception as e:
-        print(f"    Transcript error for {video_id}: {e}")
-        return ""
+
+
+# ─────────────────────────────────────────────
+# 2b. BATCH FETCH VIDEO DESCRIPTIONS
+# ─────────────────────────────────────────────
+def get_video_descriptions(video_ids: list[str]) -> dict[str, str]:
+    """Fetch full descriptions for a list of video IDs via YouTube Data API."""
+    if not video_ids:
+        return {}
+    youtube = _get_youtube_client()
+    resp = youtube.videos().list(
+        part="snippet",
+        id=",".join(video_ids)
+    ).execute()
+    return {
+        item["id"]: item["snippet"].get("description", "")
+        for item in resp.get("items", [])
+    }
 
 
 # ─────────────────────────────────────────────
 # 3. COLLECT ALL CONTENT FROM ALL CHANNELS
 # ─────────────────────────────────────────────
 def collect_content() -> list[dict]:
-    """Loop over all channels, grab recent videos + transcripts."""
+    """Loop over all channels, grab recent videos. Uses transcripts when available,
+    falls back to video descriptions (fetched via YouTube Data API)."""
     print("\n📡 Fetching videos from all channels...\n")
     collected = []
 
     for ch in CHANNELS:
         videos = get_recent_videos(ch["url"], ch["name"], limit=VIDEOS_PER_CHANNEL)
-        for v in videos:
-            transcript = get_transcript(v["id"])
-            v["transcript"] = transcript
-            v["has_transcript"] = bool(transcript)
-            collected.append(v)
+        collected.extend(videos)
+
+    # Batch-fetch full descriptions for all videos in one API call
+    all_ids = [v["id"] for v in collected]
+    print("📄 Fetching video descriptions...")
+    descriptions = get_video_descriptions(all_ids)
+
+    # Try transcript first, fall back to description
+    for v in collected:
+        transcript = get_transcript(v["id"])
+        content = transcript or descriptions.get(v["id"], "")
+        v["transcript"] = content
+        v["has_transcript"] = bool(content)
+        v["content_source"] = "transcript" if transcript else ("description" if content else "none")
 
     total = len(collected)
-    with_transcript = sum(1 for v in collected if v["has_transcript"])
-    print(f"\n📊 Collected {total} videos | {with_transcript} have transcripts\n")
+    with_content = sum(1 for v in collected if v["has_transcript"])
+    print(f"\n📊 Collected {total} videos | {with_content} have content\n")
     return collected
 
 
@@ -128,12 +152,17 @@ def collect_content() -> list[dict]:
 def build_prompt(videos: list[dict]) -> str:
     sections = []
     for v in videos:
-        content = v["transcript"] if v["has_transcript"] else "(No transcript available)"
+        if v["has_transcript"]:
+            source_label = "Transcript" if v.get("content_source") == "transcript" else "Description"
+            content = v["transcript"]
+        else:
+            source_label = "Content"
+            content = "(No content available)"
         sections.append(
             f"### {v['channel']}\n"
             f"**Video:** {v['title']}\n"
             f"**URL:** {v['url']}\n"
-            f"**Transcript excerpt:** {content}\n"
+            f"**{source_label}:** {content}\n"
         )
 
     content_block = "\n\n".join(sections)
